@@ -3,11 +3,11 @@ name: FPGA send
 on:
   workflow_call:
     secrets:
-      PROXY_PASS:
+      KEY:
         required: true
-      TARGET_PASS:
+      PORT:
         required: true
-      HOSTNAME:
+      HOST:
         required: true
       USERNAME:
         required: true
@@ -17,34 +17,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout do repositório do aluno
+      - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Gerar nome do arquivo automaticamente
+      - name: Filename generation
         run: |
           export TZ=America/Sao_Paulo
           USER="${{ github.actor }}"
           REPO="${{ github.repository }}"
-          RUN_ID="${{ github.run_id }}"
-          TIME=$(date +%H-%M)
-          FILE_NAME="${TIME}_${USER}_${RUN_ID}_${REPO//\//_}.tar.gz"
-          echo "FILE_NAME=${FILE_NAME}" >> $GITHUB_ENV
+          TIME=$(date +%Y%m%d-%H%M%S)
+          FILENAME="${TIME}_${USER}_${REPO//\//_}.tgz"
+          echo "FILENAME=${FILENAME}" >> $GITHUB_ENV
 
-      - name: Compactar todos os arquivos .v da raiz
-        run: tar -czf "$FILE_NAME" --exclude="*tb*.v" *.v
+      - name: Compact .v files excluding tb files
+        run: tar -czf "$FILENAME" --exclude="*tb*.v" *.v
 
-      - name: Instalar sshpass
-        run: sudo apt-get update && sudo apt-get install -y sshpass
+      - name: Send file via scp 
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.KEY }}
+          port: ${{ secrets.PORT }}
+          source: "*.tgz"
+          target: "~/gowin/src/"
 
-      - name: Enviar arquivo via scp com proxy SSH
-        env:
-          FILE_NAME: ${{ env.FILE_NAME }}
-          PROXY_PASS: ${{ secrets.PROXY_PASS }}
-          TARGET_PASS: ${{ secrets.TARGET_PASS }}
-          HOSTNAME: ${{ secrets.HOSTNAME }}
-          USERNAME: ${{ secrets.USERNAME }}
-    
-        run: |
-          sshpass -p "$TARGET_PASS" scp -o StrictHostKeyChecking=no \
-            -o ProxyCommand="sshpass -p '$PROXY_PASS' ssh -W %h:%p -q $USERNAME@$HOSTNAME -p 6868 -o StrictHostKeyChecking=no" \
-            "$FILE_NAME" cleiton@cleitin:/eda/worker/fila/entrada/
+      - name: Enqueue file to execution 
+        run: wget --no-check-certificate https://legacy.vlab.dc.ufscar.br/camera.php?filename="$FILENAME" && sleep 2 && 
+              wget --no-check-certificate https://legacy.vlab.dc.ufscar.br/camera.php?filename="$FILENAME" && sleep 5 && 
+              wget --no-check-certificate https://legacy.vlab.dc.ufscar.br/camera.php?filename="$FILENAME"
