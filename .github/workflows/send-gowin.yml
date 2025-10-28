@@ -1,0 +1,48 @@
+# name: FPGA send
+
+# on:
+#   workflow_call:
+#     secrets:
+#       KEY:
+#         required: true
+#       PORT:
+#         required: true
+#       HOST:
+#         required: true
+#       USERNAME:
+#         required: true
+
+# jobs:
+#   enviar-job:
+#     runs-on: ubuntu-latest
+
+#     steps:
+#       - name: Checkout
+#         uses: actions/checkout@v3
+
+#       - name: Filename generation
+#         run: |
+#           export TZ=America/Sao_Paulo
+#           USER="${{ github.actor }}"
+#           REPO="${{ github.repository }}"
+#           TIME=$(date +%Y%m%d-%H%M%S)
+#           FILENAME="${TIME}_${USER}_${REPO//\//_}.tgz"
+#           echo "FILENAME=${FILENAME}" >> $GITHUB_ENV
+
+#       - name: Compact .v files excluding tb files
+#         run: tar -czf "$FILENAME" --exclude="*tb*.v" *.v
+
+#       - name: Send file via scp 
+#         uses: appleboy/scp-action@v1
+#         with:
+#           host: ${{ secrets.HOST }}
+#           username: ${{ secrets.USERNAME }}
+#           key: ${{ secrets.KEY }}
+#           port: ${{ secrets.PORT }}
+#           source: "*.tgz"
+#           target: "~/gowin/src/"
+
+#       - name: Enqueue file to execution 
+#         run: wget --no-check-certificate https://legacy.vlab.dc.ufscar.br/camera.php?filename="$FILENAME" && sleep 2 && 
+#               wget --no-check-certificate https://legacy.vlab.dc.ufscar.br/camera.php?filename="$FILENAME" && sleep 5 && 
+#               wget --no-check-certificate https://legacy.vlab.dc.ufscar.br/camera.php?filename="$FILENAME"
